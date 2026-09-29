@@ -1,0 +1,214 @@
+<title>Jev Decision Map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: full-width network canvas with a side panel listing the shortlist Jev sees after the selected word */
+:root {
+  --bg: #f5f6f9; --panel: #ffffff; --fg: #1b1e27; --muted: #626a7d; --line: #c9cfdc;
+  --accent: #2f55d4; --start: #14866d; --end: #c2412d;
+  --display: "Instrument Sans", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11131a; --panel: #191c25; --fg: #e6e8ef; --muted: #939bb0; --line: #343a4b;
+  --accent: #8aa6ff; --start: #4fc9a8; --end: #ff8a73; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11131a; --panel: #191c25; --fg: #e6e8ef; --muted: #939bb0; --line: #343a4b;
+  --accent: #8aa6ff; --start: #4fc9a8; --end: #ff8a73; color-scheme: dark }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--display); padding-inline: 16px; box-sizing: border-box; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding-block: 16px 8px; }
+h1 { font-size: 1.35rem; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); font-size: .9rem; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; height: calc(100% - 80px); padding-bottom: 16px; }
+@media (max-width: 760px) { main { grid-template-columns: 1fr; height: auto; } #map { height: 70vh; } }
+#map { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; min-width: 0; overflow: hidden; }
+svg { width: 100%; height: 100%; display: block; cursor: grab; }
+.link { stroke: var(--line); fill: none; }
+.link.on { stroke: var(--accent); }
+.node circle { fill: var(--muted); stroke: var(--panel); stroke-width: 1.5; cursor: pointer; }
+.node.start circle { fill: var(--start); } .node.end circle { fill: var(--end); }
+.node.sel circle { fill: var(--accent); } .node.next circle { fill: var(--accent); opacity: .55; }
+.node text { font: 11px var(--mono); fill: var(--fg); pointer-events: none; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; }
+.node.dim { opacity: .25; } .link.dim { opacity: .15; }
+aside { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow: auto; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+#word { font: 600 1.4rem var(--mono); word-break: break-all; }
+ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+li button { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: minmax(0,1fr) 3.5em; gap: 8px; align-items: center; cursor: pointer; border-radius: 6px; padding: 4px 6px; }
+li button:hover, li button:focus-visible { background: color-mix(in srgb, var(--accent) 12%, transparent); outline: none; }
+.w { font: 13px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; position: relative; }
+.bar { position: absolute; inset: auto auto 0 0; height: 2px; background: var(--accent); }
+.pct { font: 12px var(--mono); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.note { font-size: .82rem; color: var(--muted); line-height: 1.45; }
+.key { display: flex; flex-wrap: wrap; gap: 10px; font-size: .8rem; color: var(--muted); }
+.tabs { display: flex; gap: 4px; margin-left: auto; }
+.tabs button { font: 600 .85rem var(--display); color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.tabs button[aria-selected="true"] { color: var(--panel); background: var(--accent); border-color: var(--accent); }
+.tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#flow .edge { stroke: var(--line); stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+#flow .edge.on { stroke: var(--accent); stroke-width: 2.2; }
+#flow .elabel { font: 11px var(--mono); fill: var(--muted); paint-order: stroke; stroke: var(--panel); stroke-width: 4px; }
+#flow .box rect { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; rx: 8; cursor: pointer; }
+#flow .box text { font: 12.5px var(--display); fill: var(--fg); pointer-events: none; }
+#flow .box.q rect { stroke: var(--accent); } #flow .box.store rect { fill: var(--bg); stroke-dasharray: 4 3; }
+#flow .box.msg rect { stroke: var(--start); } #flow .box.new rect { stroke: var(--end); stroke-width: 2.2; }
+#flow .box.sel rect { fill: color-mix(in srgb, var(--accent) 14%, var(--panel)); stroke-width: 2.5; }
+#flow .band { fill: color-mix(in srgb, var(--accent) 6%, transparent); stroke: none; }
+#flow .bandlabel { font: 11px var(--mono); fill: var(--accent); }
+#dtitle { font: 600 1.1rem var(--display); }
+#dtext { font-size: .9rem; line-height: 1.5; white-space: pre-line; }
+.key i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+</style>
+
+<header>
+  <h1>Jev Decision Map</h1>
+  <span class="sub" id="stats"></span>
+  <div class="tabs" role="tablist">
+    <button id="tab-flow" role="tab" aria-selected="true">Decisions</button>
+    <button id="tab-words" role="tab" aria-selected="false">Words</button>
+  </div>
+</header>
+<main id="flowview">
+  <div id="map2" style="background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0;overflow:auto">
+    <svg id="flow" viewBox="0 0 1000 640" role="img" aria-label="Every decision Jev makes for each message"></svg>
+  </div>
+  <aside>
+    <div>
+      <div class="label">Step</div>
+      <div id="dtitle"></div>
+    </div>
+    <div id="dtext"></div>
+    <p class="note">Blue boxes are questions Jev answers. The three at the top are asked together in one request for every message, so the red one (should I go learn this?) adds no wait. Click any box.</p>
+    <div class="key"><span><i style="background:var(--start)"></i>your message</span><span><i style="background:var(--accent)"></i>Jev question</span><span><i style="background:var(--end)"></i>new: learn on its own</span></div>
+  </aside>
+</main>
+<main id="wordview" hidden>
+  <div id="map"><svg id="svg" role="img" aria-label="Network of words and which words follow them"></svg></div>
+  <aside>
+    <div>
+      <div class="label">After this word</div>
+      <div id="word"></div>
+    </div>
+    <div>
+      <div class="label">Jev's shortlist, from your replies</div>
+      <ol id="list"></ol>
+    </div>
+    <p class="note">Each round, <code>reply</code> hands Jev up to 20 words that followed the last word in your saved replies. Jev picks the one that fits the goal. Percentages are how often each word came next. Click a word, here or on the map, to follow a path.</p>
+    <div class="key"><span><i style="background:var(--start)"></i>start</span><span><i style="background:var(--end)"></i>end</span><span><i style="background:var(--accent)"></i>selected</span></div>
+  </aside>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+const FLOW = {
+  nodes: [
+    {id: "msg", x: 500, y: 40, w: 150, kind: "msg", t: "Your message", d: "Everything starts here. Jev also sees the last few messages so words like 'it' and 'that' make sense."},
+    {id: "tool", x: 230, y: 160, w: 170, kind: "q", t: "Which tool? (Choice)", d: "none · time · date · math · remember · recall · open · search\n\nPicks the tool this message needs, if any."},
+    {id: "learn", x: 500, y: 160, w: 190, kind: "q new", t: "World fact? (yes/no)", d: "\"Is this a question asking for a fact about the world: what something is, how something works, or who, when, or where something happened?\"\n\nAt 70% or more, Jev goes to learn it, even if you didn't ask it to search. Measured: 0.98–0.99 for real fact questions, 0.01–0.11 for chit-chat."},
+    {id: "site", x: 770, y: 160, w: 170, kind: "q", t: "Which site? (Choice)", d: "Only used when the tool is 'open'. Asked every time anyway, so opening a site costs no extra wait."},
+    {id: "do", x: 110, y: 300, w: 180, kind: "", t: "time · date · math · open", d: "Code does the work. Jev only chose the tool."},
+    {id: "recall", x: 330, y: 300, w: 170, kind: "q", t: "Which fact? (Choice)", d: "Looks through memory.txt for the saved fact that answers the message, or 'none'."},
+    {id: "search", x: 560, y: 300, w: 170, kind: "", t: "Search (Gemini)", d: "The only step that isn't Jev. Gemini searches Google and writes 3–5 short facts.\n\nNeeds Gemini billing, or a free search source, before it works."},
+    {id: "grade", x: 560, y: 420, w: 190, kind: "q", t: "Good fact? (yes/no)", d: "Jev checks each fact: clear, specific, answers the question. Only 80% or higher gets remembered."},
+    {id: "memory", x: 440, y: 560, w: 150, kind: "store", t: "memory.txt", d: "Facts you told it and facts it learned, each tagged with where it came from. Any size: only the best matches are read each time."},
+    {id: "pick", x: 830, y: 300, w: 190, kind: "q", t: "Next sentence? (Choice)", d: "Picks up to 3 sentences from your saved replies (up to 254 options per pick), in Jev's naive, curious voice. It won't repeat itself or start two sentences the same way."},
+    {id: "judge", x: 830, y: 420, w: 170, kind: "q", t: "Good reply? (yes/no)", d: "Jev grades its own reply. Under 70%: it admits it doesn't know. When you press Enter: 80% or more gets saved."},
+    {id: "unsure", x: 900, y: 540, w: 170, kind: "q", t: "Which 'I don't know'?", d: "Jev picks the fitting 'I don't know that yet, can you teach me?' line, then asks you to teach it."},
+    {id: "replies", x: 700, y: 560, w: 150, kind: "store", t: "replies.txt", d: "Everything it can say. Grows every time you keep or teach a reply."},
+  ],
+  edges: [["msg","tool"],["msg","learn"],["msg","site"],["tool","do","a tool"],["tool","recall","recall"],["tool","search","search"],
+          ["learn","recall","≥ 70%"],["recall","search","not found"],["search","grade"],["grade","memory","keep"],
+          ["memory","recall","later"],["tool","pick","none"],["pick","judge"],["judge","replies","≥ 80%"],
+          ["judge","unsure","< 70%"],["unsure","replies","you teach it"],["replies","pick","next time"]],
+};
+(function () {
+  const svg = d3.select("#flow"), by = Object.fromEntries(FLOW.nodes.map(n => [n.id, n])), H = 40;
+  svg.append("defs").append("marker").attr("id", "arrow").attr("viewBox", "0 0 10 10").attr("refX", 9).attr("refY", 5)
+    .attr("markerWidth", 7).attr("markerHeight", 7).attr("orient", "auto-start-reverse")
+    .append("path").attr("d", "M0,0 L10,5 L0,10 z").attr("fill", "var(--muted)");
+  svg.append("rect").attr("class", "band").attr("x", 120).attr("y", 128).attr("width", 770).attr("height", 64).attr("rx", 12);
+  svg.append("text").attr("class", "bandlabel").attr("x", 128).attr("y", 122).text("asked together · one request per message");
+  const edge = (a, b) => { // from the edge of box a to the edge of box b
+    const dx = b.x - a.x, dy = b.y - a.y, sx = Math.abs(dx) / (a.w / 2 + 6) , sy = Math.abs(dy) / (H / 2 + 6);
+    const s1 = 1 / Math.max(sx, sy, 1e-6), tx = Math.abs(dx) / (b.w / 2 + 8), ty = Math.abs(dy) / (H / 2 + 8), s2 = 1 / Math.max(tx, ty, 1e-6);
+    return [a.x + dx * s1, a.y + dy * s1, b.x - dx * s2, b.y - dy * s2];
+  };
+  const lines = svg.append("g").selectAll("g").data(FLOW.edges).join("g");
+  lines.append("line").attr("class", "edge").each(function ([a, b]) {
+    const [x1, y1, x2, y2] = edge(by[a], by[b]); d3.select(this).attr("x1", x1).attr("y1", y1).attr("x2", x2).attr("y2", y2);
+  });
+  lines.filter(e => e[2]).append("text").attr("class", "elabel").attr("text-anchor", "middle")
+    .attr("x", ([a, b]) => (by[a].x + by[b].x) / 2).attr("y", ([a, b]) => (by[a].y + by[b].y) / 2 + 4).text(e => e[2]);
+  const box = svg.append("g").selectAll("g").data(FLOW.nodes).join("g")
+    .attr("class", n => "box " + n.kind).attr("transform", n => `translate(${n.x - n.w / 2},${n.y - H / 2})`)
+    .attr("tabindex", 0).on("click", (e, n) => pick(n.id)).on("keydown", (e, n) => { if (e.key === "Enter") pick(n.id); });
+  box.append("rect").attr("width", n => n.w).attr("height", H);
+  box.append("text").attr("x", n => n.w / 2).attr("y", H / 2 + 4.5).attr("text-anchor", "middle").text(n => n.t);
+  function pick(id) {
+    box.classed("sel", n => n.id === id);
+    lines.select("line").classed("on", ([a, b]) => a === id || b === id);
+    document.getElementById("dtitle").textContent = by[id].t;
+    document.getElementById("dtext").textContent = by[id].d;
+  }
+  pick("learn");
+  const tabs = {flow: "flowview", words: "wordview"};
+  for (const [k, view] of Object.entries(tabs)) document.getElementById("tab-" + k).onclick = () => {
+    for (const [k2, v2] of Object.entries(tabs)) {
+      document.getElementById(v2).hidden = k2 !== k;
+      document.getElementById("tab-" + k2).setAttribute("aria-selected", k2 === k);
+    }
+    if (k === "words") window.dispatchEvent(new Event("words-shown"));
+  };
+})();
+</script>
+<script>
+const D = __DATA__;
+document.getElementById("stats").textContent =
+  `${D.nodes.length} most-used of ${D.words} words · learned from ${D.replies} saved replies`;
+const svg = d3.select("#svg"), box = document.getElementById("map");
+const g = svg.append("g");
+svg.call(d3.zoom().scaleExtent([.3, 4]).on("zoom", e => g.attr("transform", e.transform)));
+const maxN = d3.max(D.links, l => l.n), r = d3.scaleSqrt().domain([1, d3.max(D.nodes, n => n.n)]).range([3, 14]);
+const link = g.append("g").selectAll("line").data(D.links).join("line")
+  .attr("class", "link").attr("stroke-width", l => 0.6 + 2.4 * l.n / maxN);
+const node = g.append("g").selectAll("g").data(D.nodes).join("g")
+  .attr("class", n => "node" + (n.id === D.start ? " start" : n.id === D.end ? " end" : ""))
+  .on("click", (e, n) => select(n.id));
+node.append("circle").attr("r", n => r(n.n));
+node.append("text").attr("x", n => r(n.n) + 3).attr("y", 4).text(n => n.id);
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const sim = d3.forceSimulation(D.nodes)
+  .force("link", d3.forceLink(D.links).id(n => n.id).distance(60).strength(l => .05 + .3 * l.n / maxN))
+  .force("charge", d3.forceManyBody().strength(-140))
+  .force("collide", d3.forceCollide(n => r(n.n) + 10))
+  .force("center", d3.forceCenter(500, 350));
+window.addEventListener("words-shown", () => { sim.force("center", d3.forceCenter(box.clientWidth / 2, box.clientHeight / 2)).alpha(.5).restart(); }, {once: true});
+node.call(d3.drag()
+  .on("start", (e, n) => { if (!e.active) sim.alphaTarget(.2).restart(); n.fx = n.x; n.fy = n.y; })
+  .on("drag", (e, n) => { n.fx = e.x; n.fy = e.y; })
+  .on("end", (e, n) => { if (!e.active) sim.alphaTarget(0); n.fx = n.fy = null; }));
+const tick = () => {
+  link.attr("x1", l => l.source.x).attr("y1", l => l.source.y).attr("x2", l => l.target.x).attr("y2", l => l.target.y);
+  node.attr("transform", n => `translate(${n.x},${n.y})`);
+};
+if (reduce) { sim.stop(); for (let i = 0; i < 300; i++) sim.tick(); tick(); } else sim.on("tick", tick);
+
+function select(id) {
+  const opts = D.choices[id] || [], total = d3.sum(opts, o => o[1]) || 1, next = new Set(opts.map(o => o[0]));
+  document.getElementById("word").textContent = id;
+  node.classed("sel", n => n.id === id).classed("next", n => n.id !== id && next.has(n.id))
+      .classed("dim", n => n.id !== id && !next.has(n.id));
+  link.classed("on", l => l.source.id === id).classed("dim", l => l.source.id !== id);
+  const list = document.getElementById("list");
+  list.replaceChildren(...(opts.length ? opts : [[D.end, 0]]).map(([w, n]) => {
+    const li = document.createElement("li"), b = document.createElement("button");
+    const pct = Math.round(100 * n / total);
+    b.innerHTML = `<span class="w"></span><span class="pct">${opts.length ? pct + "%" : "—"}</span>`;
+    b.querySelector(".w").textContent = w;
+    const bar = document.createElement("span"); bar.className = "bar"; bar.style.width = pct + "%";
+    b.querySelector(".w").append(bar);
+    b.onclick = () => select(w);
+    li.append(b); return li;
+  }));
+}
+select(D.start);
+</script>

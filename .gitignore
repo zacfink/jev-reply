@@ -1,0 +1,14 @@
+# private: never publish
+# real inbound emails from other people
+eval_replies.py
+# chat history, remembered facts, backups
+conversation.jsonl
+memory.txt
+replies.backup.txt
+rejected.txt
+# your own replies (a fresh copy starts from replies.starter.txt) and the map built from them
+replies.txt
+decision_map.html
+.claude/
+__pycache__/
+.DS_Store
